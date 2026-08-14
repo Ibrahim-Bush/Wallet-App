@@ -10,8 +10,8 @@ import (
 type Transaction_repo interface {
 	Get_all_records(user *model.User_claims) ([]model.Transaction, error)
 	Get_records_by_category(category string, user *model.User_claims) ([]model.Transaction, error)
-	Get_records_by_date(user *model.User_claims, start, end time.Time) ([]model.Transaction, error)
-	Get_records_summary(user *model.User_claims) ([]model.Transaction_summary, error)
+	Get_records_by_date(start, end time.Time, user *model.User_claims) ([]model.Transaction, error)
+	Get_records_summary(current_month time.Time, user *model.User_claims) ([]model.Transaction_summary, error)
 	Create_transaction_record(tx *gorm.DB, transaction *model.Transaction) error
 }
 
@@ -66,7 +66,7 @@ func (t *transaction_repo) Get_records_by_category(category string, user *model.
 	return transactions, nil
 }
 
-func (t *transaction_repo) Get_records_by_date(user *model.User_claims, start, end time.Time) ([]model.Transaction, error) {
+func (t *transaction_repo) Get_records_by_date( start, end time.Time, user *model.User_claims) ([]model.Transaction, error) {
 	//create a slice for elements.
 	var transactions = make([]model.Transaction, 0)
 	//define a variable to check the result.
@@ -87,14 +87,11 @@ func (t *transaction_repo) Get_records_by_date(user *model.User_claims, start, e
 	return transactions, nil
 }
 
-func (t *transaction_repo) Get_records_summary(user *model.User_claims) ([]model.Transaction_summary, error) {
+func (t *transaction_repo) Get_records_summary(current_month time.Time, user *model.User_claims) ([]model.Transaction_summary, error) {
 	//create a slice for elements.
 	var summary = make([]model.Transaction_summary, 0)
 	//define a variable to check the result.
 	var result *gorm.DB
-	//get the date of the current month.
-	current_time := time.Now().UTC()
-	current_month := time.Date(current_time.Year(), current_time.Month(), 1, 0, 0, 0, 0, time.UTC)
 	//differentiate users based on role.
 	if user.Role == "admin" {
 		result = t.db.Model(&model.Transaction{}).Select("category, SUM(amount) as total").
