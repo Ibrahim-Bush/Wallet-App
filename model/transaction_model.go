@@ -14,3 +14,8 @@ type Transaction struct {
 	RelatedWalletID *int      `json:"related_wallet_id"`
 	CreatedAt       time.Time `json:"created_at"`
 }
+
+type Transaction_summary struct {
+	Category string `json:"category"`
+	Total    int    `json:"total"`
+}
