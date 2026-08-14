@@ -6,6 +6,8 @@ import (
 	"Wallet-App/utils"
 	"errors"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 var (
@@ -27,10 +29,11 @@ type User_service interface {
 type user_service struct {
 	repository  repository.User_repo
 	wallet_repo repository.Wallet_repo
+	db          *gorm.DB
 }
 
-func Init_user_service(repo repository.User_repo, wallet_repo repository.Wallet_repo) User_service {
-	new_service := user_service{repository: repo, wallet_repo: wallet_repo}
+func Init_user_service(repo repository.User_repo, wallet_repo repository.Wallet_repo, db *gorm.DB) User_service {
+	new_service := user_service{repository: repo, wallet_repo: wallet_repo, db: db}
 	return &new_service
 }
 
@@ -61,8 +64,22 @@ func (service *user_service) Create_user(input_struct model.Auth_request) (*mode
 	wallet := model.Wallet{
 		Balance: 0,
 	}
-	//store new user in repository.
-	err = service.repository.Create_user_record(&user, &wallet)
+	//start a transaction to create user with wallet.
+	err = service.db.Transaction(func(tx *gorm.DB) error {
+		//first create the user.
+		err := service.repository.Create_user_record(tx, &user)
+		if err != nil {
+			return err
+		}
+		//if the user created successfully, create his wallet.
+		wallet.UserID = user.ID
+		err = service.wallet_repo.Create_wallet_record(tx, &wallet)
+		if err != nil {
+			return err
+		}
+		//after successfull operations.
+		return nil
+	})
 	//check the result.
 	switch {
 	case err == nil:
