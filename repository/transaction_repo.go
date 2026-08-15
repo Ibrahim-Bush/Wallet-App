@@ -8,10 +8,10 @@ import (
 )
 
 type Transaction_repo interface {
-	Get_all_records(user *model.User_claims) ([]model.Transaction, error)
-	Get_records_by_category(category string, user *model.User_claims) ([]model.Transaction, error)
-	Get_records_by_date(start, end time.Time, user *model.User_claims) ([]model.Transaction, error)
-	Get_records_summary(current_month time.Time, user *model.User_claims) ([]model.Transaction_summary, error)
+	Get_all_records(wallet_id int, user *model.User_claims) ([]model.Transaction, error)
+	Get_records_by_category(category string, wallet_id int, user *model.User_claims) ([]model.Transaction, error)
+	Get_records_by_date(start, end time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction, error)
+	Get_records_summary(current_month time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction_summary, error)
 	Create_transaction_record(tx *gorm.DB, transaction *model.Transaction) error
 }
 
@@ -24,7 +24,7 @@ type transaction_repo struct {
 	db *gorm.DB
 }
 
-func (t *transaction_repo) Get_all_records(user *model.User_claims) ([]model.Transaction, error) {
+func (t *transaction_repo) Get_all_records(wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
 	//create a slice for elements.
 	var transactions = make([]model.Transaction, 0)
 	//define a variable to check the result.
@@ -35,7 +35,7 @@ func (t *transaction_repo) Get_all_records(user *model.User_claims) ([]model.Tra
 		result = t.db.Find(&transactions)
 	} else {
 		//get records of the current user only.
-		result = t.db.Where("user_id = ?", user.UserID).Find(&transactions)
+		result = t.db.Where("wallet_id = ?", wallet_id).Find(&transactions)
 	}
 	//check the result of process.
 	if result.Error != nil {
@@ -45,7 +45,7 @@ func (t *transaction_repo) Get_all_records(user *model.User_claims) ([]model.Tra
 	return transactions, nil
 }
 
-func (t *transaction_repo) Get_records_by_category(category string, user *model.User_claims) ([]model.Transaction, error) {
+func (t *transaction_repo) Get_records_by_category(category string, wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
 	//create a slice for elements.
 	var transactions = make([]model.Transaction, 0)
 	//define a variable to check the result.
@@ -56,7 +56,7 @@ func (t *transaction_repo) Get_records_by_category(category string, user *model.
 		result = t.db.Where("category = ?", category).Find(&transactions)
 	} else {
 		//get records of the current user only.
-		result = t.db.Where("category = ? AND user_id = ?", category, user.UserID).Find(&transactions)
+		result = t.db.Where("category = ? AND wallet_id = ?", category, wallet_id).Find(&transactions)
 	}
 	//check the result of process.
 	if result.Error != nil {
@@ -66,7 +66,7 @@ func (t *transaction_repo) Get_records_by_category(category string, user *model.
 	return transactions, nil
 }
 
-func (t *transaction_repo) Get_records_by_date( start, end time.Time, user *model.User_claims) ([]model.Transaction, error) {
+func (t *transaction_repo) Get_records_by_date( start, end time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
 	//create a slice for elements.
 	var transactions = make([]model.Transaction, 0)
 	//define a variable to check the result.
@@ -77,7 +77,7 @@ func (t *transaction_repo) Get_records_by_date( start, end time.Time, user *mode
 		result = t.db.Where("created_at BETWEEN ? AND ?", start, end).Find(&transactions)
 	} else {
 		//get records of the current user only.
-		result = t.db.Where("user_id = ? AND created_at BETWEEN ? AND ?", user.UserID, start, end).Find(&transactions)
+		result = t.db.Where("wallet_id = ? AND created_at BETWEEN ? AND ?", wallet_id, start, end).Find(&transactions)
 	}
 	//check the result of process.
 	if result.Error != nil {
@@ -87,7 +87,7 @@ func (t *transaction_repo) Get_records_by_date( start, end time.Time, user *mode
 	return transactions, nil
 }
 
-func (t *transaction_repo) Get_records_summary(current_month time.Time, user *model.User_claims) ([]model.Transaction_summary, error) {
+func (t *transaction_repo) Get_records_summary(current_month time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction_summary, error) {
 	//create a slice for elements.
 	var summary = make([]model.Transaction_summary, 0)
 	//define a variable to check the result.
@@ -98,7 +98,7 @@ func (t *transaction_repo) Get_records_summary(current_month time.Time, user *mo
 			Where("created_at >= ?", current_month).Group("category").Scan(&summary)
 	} else {
 		result = t.db.Model(&model.Transaction{}).Select("category, SUM(amount) as total").
-			Where("user_id = ? AND created_at >= ?", user.UserID, current_month).Group("category").Scan(&summary)
+			Where("wallet_id = ? AND created_at >= ?", wallet_id, current_month).Group("category").Scan(&summary)
 	}
 	//check the result of process.
 	if result.Error != nil {

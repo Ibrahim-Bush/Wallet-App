@@ -341,8 +341,16 @@ func (service *wallet_service) Get_user_transactions(user *model.User_claims) ([
 	if user == nil {
 		return nil, ErrInvalidUser
 	}
+	//first, get the user's wallet to get transactions on it.
+	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
+	if err != nil{
+		if errors.Is(err, repository.ErrWalletNotFound){
+			return nil, ErrWalletNotFound
+		}
+		return nil, ErrServerError
+	}
 	//get all user transactions.
-	transactions, err := service.trans_repo.Get_all_records(user)
+	transactions, err := service.trans_repo.Get_all_records( wallet.ID, user)
 	//check the result.
 	switch {
 	case err == nil:
@@ -362,8 +370,16 @@ func (service *wallet_service) Get_transactions_by_category(category string, use
 	if category == "" {
 		return nil, ErrEmptyCategory
 	}
+	//first, get the user's wallet to get transactions on it.
+	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
+	if err != nil{
+		if errors.Is(err, repository.ErrWalletNotFound){
+			return nil, ErrWalletNotFound
+		}
+		return nil, ErrServerError
+	}
 	//get all user transactions of the target category.
-	transactions, err := service.trans_repo.Get_records_by_category(category, user)
+	transactions, err := service.trans_repo.Get_records_by_category(category, wallet.ID, user)
 	//check the result.
 	switch {
 	case err == nil:
@@ -392,8 +408,16 @@ func (service *wallet_service) Get_transactions_by_date(start, end string, user 
 	if start_time.After(end_time) {
 		return nil, ErrInvalidDateRange
 	}
+	//first, get the user's wallet to get transactions on it.
+	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
+	if err != nil{
+		if errors.Is(err, repository.ErrWalletNotFound){
+			return nil, ErrWalletNotFound
+		}
+		return nil, ErrServerError
+	}
 	//get all user transactions of the target category.
-	transactions, err := service.trans_repo.Get_records_by_date(start_time, end_time, user)
+	transactions, err := service.trans_repo.Get_records_by_date(start_time, end_time, wallet.ID, user)
 	//check the result.
 	switch {
 	case err == nil:
@@ -432,8 +456,16 @@ func (service *wallet_service) Get_transactions_summary(user *model.User_claims)
 	//get the date of the current month.
 	current_time := time.Now().UTC()
 	current_month := time.Date(current_time.Year(), current_time.Month(), 1, 0, 0, 0, 0, time.UTC)
+	//first, get the user's wallet to get transactions on it.
+	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
+	if err != nil{
+		if errors.Is(err, repository.ErrWalletNotFound){
+			return nil, ErrWalletNotFound
+		}
+		return nil, ErrServerError
+	}
 	//get the transactions summary of this month.
-	summary, err := service.trans_repo.Get_records_summary(current_month, user)
+	summary, err := service.trans_repo.Get_records_summary(current_month, wallet.ID, user)
 	//check the summary.
 	switch {
 	case err == nil:

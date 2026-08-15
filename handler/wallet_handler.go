@@ -193,6 +193,8 @@ func (handler *Wallet_handler) Get_transactions_handler(c *gin.Context) {
 			c.JSON(200, transactions)
 		case errors.Is(err, service.ErrEmptyCategory):
 			c.JSON(400, gin.H{"error": "Category cannot be empty"})
+		case errors.Is(err, service.ErrWalletNotFound):
+			c.JSON(404, gin.H{"error": "Wallet not found"})
 		default:
 			c.JSON(500, gin.H{"error": "Server error"})
 		}
@@ -217,6 +219,8 @@ func (handler *Wallet_handler) Get_transactions_handler(c *gin.Context) {
 			c.JSON(400, gin.H{"error": "Invalid date format"})
 		case errors.Is(err, service.ErrInvalidDateRange):
 			c.JSON(400, gin.H{"error": "Start date cannot be after the end date"})
+		case errors.Is(err, service.ErrWalletNotFound):
+			c.JSON(404, gin.H{"error": "Wallet not found"})
 		default:
 			c.JSON(500, gin.H{"error": "Server error"})
 		}
@@ -228,6 +232,8 @@ func (handler *Wallet_handler) Get_transactions_handler(c *gin.Context) {
 	switch {
 	case err == nil:
 		c.JSON(200, transactions)
+	case errors.Is(err, service.ErrWalletNotFound):
+		c.JSON(404, gin.H{"error": "Wallet not found"})
 	default:
 		c.JSON(500, gin.H{"error": "Server error"})
 	}
@@ -246,6 +252,8 @@ func (handler *Wallet_handler) Get_transactions_summary_handler(c *gin.Context) 
 	switch {
 	case err == nil:
 		c.JSON(200, summary)
+	case errors.Is(err, service.ErrWalletNotFound):
+		c.JSON(404, gin.H{"error": "Wallet not found"})
 	default:
 		c.JSON(500, gin.H{"error": "Server error"})
 	}
