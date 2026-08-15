@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Wallet-App/config"
+	database "Wallet-App/config"
 	"Wallet-App/handler"
 	"Wallet-App/repository"
 	"Wallet-App/router"
@@ -17,7 +17,7 @@ func main() {
 	Router := gin.Default()
 
 	//then: get a connection to database.
-	connection_data := "host=localhost user=postgres password=admin dbname=wallet_app port=5432 sslmode=disable"
+	connection_data := "host=db user=postgres password=admin dbname=wallet_app port=5432 sslmode=disable"
 	database, err := database.Init_database(connection_data)
 	//if something went wrong exit.
 	if err != nil {
@@ -36,7 +36,6 @@ func main() {
 	//linking service layer to handler layer.
 	user_handler := handler.Init_user_handler(user_service)
 	wallet_handler := handler.Init_wallet_handler(wallet_service)
-
 
 	//linking the handler layer to the router.
 	router.Init_user_router(Router, user_handler)
