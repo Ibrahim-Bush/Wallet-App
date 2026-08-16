@@ -8,6 +8,7 @@ import (
 
 type Mock_user_repo struct {
 	Received_name string
+	Received_user *model.User
 	Wanted_user   *model.User
 	Wanted_err    error
 	Was_called    bool
@@ -23,7 +24,12 @@ func (mock *Mock_user_repo) Get_user_record_by_name(name string) (*model.User, e
 }
 
 func (mock *Mock_user_repo) Create_user_record(tx *gorm.DB, new_user *model.User) error {
-	panic("Mock error: unexpected call to Create_user method")
+	//change was_called to true.
+	mock.Was_called = true
+	//store the received user in the struct.
+	mock.Received_user = new_user
+	//return required value.
+	return mock.Wanted_err
 }
 
 func (mock *Mock_user_repo) Get_user_record_by_id(id int) (*model.User, error) {

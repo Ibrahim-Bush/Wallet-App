@@ -370,7 +370,9 @@ func Test_transfer_process(t *testing.T) {
 		repo_username         string
 		update_wallet_return  []mock.Data
 		repo_sender_balance   int
+		repo_sender_id        int
 		repo_receiver_balance int
+		repo_receiver_id      int
 		create_trans_return   []mock.Trans_data
 		repo_out_transaction  *model.Transaction
 		repo_in_transaction   *model.Transaction
@@ -379,6 +381,7 @@ func Test_transfer_process(t *testing.T) {
 		get_by_id_calls       int
 		update_calls          int
 		create_trans_calls    int
+		call_get_user         bool
 	}
 	//set up a pointer to integer to use it in success case.
 	num := 10
@@ -397,6 +400,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      0,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        false,
 		}, {
 			name:                 "Error: Empty category",
 			input_request:        model.Transfer_request{Amount: 1, Category: "		"},
@@ -409,6 +413,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      0,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        false,
 		}, {
 			name:                 "Error: Empty receiver",
 			input_request:        model.Transfer_request{Amount: 1, Category: "	food ", ToUsername: "	"},
@@ -421,11 +426,13 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      0,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        false,
 		}, {
 			name:                 "Error: sender Wallet not found",
 			input_request:        model.Transfer_request{Amount: 1, Category: "	FOOd	", ToUsername: "	MoHamed"},
 			input_user:           &model.User_claims{Username: "ali", UserID: 1, Role: "user"},
 			get_by_id_return:     []mock.Data{{Wanted_wallet: nil, Wanted_err: repository.ErrWalletNotFound}},
+			repo_sender_id:       1,
 			update_wallet_return: []mock.Data{},
 			create_trans_return:  []mock.Trans_data{},
 			expected_transaction: nil,
@@ -433,12 +440,14 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      1,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        false,
 		}, {
 			name:          "Error: Insufficient balance",
 			input_request: model.Transfer_request{Amount: 20, Category: "	FOOd	", ToUsername: "	MoHamed"},
 			input_user:    &model.User_claims{Username: "ali", UserID: 1, Role: "user"},
 			get_by_id_return: []mock.Data{{Wanted_wallet: &model.Wallet{Balance: 10, ID: 1, UserID: 1},
 				Wanted_err: nil}},
+			repo_sender_id:       1,
 			update_wallet_return: []mock.Data{},
 			create_trans_return:  []mock.Trans_data{},
 			expected_transaction: nil,
@@ -446,6 +455,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      1,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        false,
 		}, {
 			name:          "Error: Receiver not found",
 			input_request: model.Transfer_request{Amount: 20, Category: "	FOOd	", ToUsername: "	MohAmed	"},
@@ -455,6 +465,7 @@ func Test_transfer_process(t *testing.T) {
 			wanted_user_return:   nil,
 			wanted_get_user_err:  repository.ErrUserNotFound,
 			repo_username:        "mohamed",
+			repo_sender_id:       1,
 			update_wallet_return: []mock.Data{},
 			create_trans_return:  []mock.Trans_data{},
 			expected_transaction: nil,
@@ -462,6 +473,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      1,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        true,
 		}, {
 			name:          "Error: Sender is the same as the receiver",
 			input_request: model.Transfer_request{Amount: 30, Category: "	FOOd	", ToUsername: "	ALi "},
@@ -471,6 +483,8 @@ func Test_transfer_process(t *testing.T) {
 			wanted_user_return:   &model.User{Username: "ali", ID: 1, Role: "user"},
 			wanted_get_user_err:  nil,
 			repo_username:        "ali",
+			repo_sender_id:       1,
+			repo_receiver_id:     1,
 			update_wallet_return: []mock.Data{},
 			create_trans_return:  []mock.Trans_data{},
 			repo_out_transaction: nil,
@@ -479,6 +493,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      2,
 			update_calls:         0,
 			create_trans_calls:   0,
+			call_get_user:        true,
 		}, {
 			name:          "Error: Server error with update balance",
 			input_request: model.Transfer_request{Amount: 30, Category: "	FOOd	", ToUsername: "	Mohamed "},
@@ -490,6 +505,8 @@ func Test_transfer_process(t *testing.T) {
 			repo_username:        "mohamed",
 			update_wallet_return: []mock.Data{{Wanted_err: errors.New("Database connection failure")}},
 			repo_sender_balance:  70,
+			repo_sender_id:       1,
+			repo_receiver_id:     2,
 			create_trans_return:  []mock.Trans_data{},
 			repo_out_transaction: nil,
 			expected_transaction: nil,
@@ -497,6 +514,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:      2,
 			update_calls:         1,
 			create_trans_calls:   0,
+			call_get_user:        true,
 		}, {
 			name:          "Error: Server error with create transaction record",
 			input_request: model.Transfer_request{Amount: 10, Category: "	FOOd	", ToUsername: "	Mohamed "},
@@ -508,7 +526,9 @@ func Test_transfer_process(t *testing.T) {
 			repo_username:         "mohamed",
 			update_wallet_return:  []mock.Data{{Wanted_err: nil}, {Wanted_err: nil}},
 			repo_sender_balance:   40,
+			repo_sender_id:        1,
 			repo_receiver_balance: 20,
+			repo_receiver_id:      2,
 			create_trans_return:   []mock.Trans_data{{Wanted_err: errors.New("Database connection failure")}},
 			repo_out_transaction:  &model.Transaction{WalletID: 1, Type: "transfer_out", Amount: 10, Category: "food", RelatedWalletID: ptr},
 			expected_transaction:  nil,
@@ -516,6 +536,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:       2,
 			update_calls:          2,
 			create_trans_calls:    1,
+			call_get_user:         true,
 		}, {
 			name:          "Success: Transaction created",
 			input_request: model.Transfer_request{Amount: 10, Category: "	FOOd	", ToUsername: "	Mohamed "},
@@ -527,7 +548,9 @@ func Test_transfer_process(t *testing.T) {
 			repo_username:         "mohamed",
 			update_wallet_return:  []mock.Data{{Wanted_err: nil}, {Wanted_err: nil}},
 			repo_sender_balance:   20,
+			repo_sender_id:        1,
 			repo_receiver_balance: 20,
+			repo_receiver_id:      2,
 			create_trans_return:   []mock.Trans_data{{Wanted_err: nil}, {Wanted_err: nil}},
 			repo_out_transaction:  &model.Transaction{WalletID: 1, Type: "transfer_out", Amount: 10, Category: "food", RelatedWalletID: ptr},
 			repo_in_transaction:   &model.Transaction{WalletID: 2, Type: "transfer_in", Amount: 10, Category: "food", RelatedWalletID: ptr},
@@ -536,6 +559,7 @@ func Test_transfer_process(t *testing.T) {
 			get_by_id_calls:       2,
 			update_calls:          2,
 			create_trans_calls:    2,
+			call_get_user:         true,
 		},
 	}
 	//run tests one by one.
@@ -564,20 +588,51 @@ func Test_transfer_process(t *testing.T) {
 			if mock_trans_repo.Create_transaction_count != usecase.create_trans_calls {
 				t.Errorf("Behaviour: expected create_transaction calls %d, got %d", usecase.create_trans_calls, mock_trans_repo.Create_transaction_count)
 			}
+			if mock_user_repo.Was_called != usecase.call_get_user {
+				t.Errorf("Behaviour: expected Get_user_by_name call %t, got %t", usecase.call_get_user, mock_user_repo.Was_called)
+			}
 			//check the repo input.
+			if mock_user_repo.Was_called == true && usecase.call_get_user == true {
+				//check the passed username.
+				if mock_user_repo.Received_name != usecase.repo_username {
+					t.Errorf("Logic: expected username in get_user_by_name call %s got %s", usecase.repo_username, mock_user_repo.Received_name)
+				}
+			}
+			if mock_wallet_repo.Get_by_id_count >= 1 && usecase.get_by_id_calls >= 1 {
+				//check the sender_id.
+				received_id := mock_wallet_repo.Get_by_id_calls[0].Received_id
+				if received_id != usecase.repo_sender_id {
+					t.Errorf("Logic: expected sender ID passed to get_wallet_by_userID %d got %d", usecase.repo_sender_id, received_id)
+				}
+			}
+			if mock_wallet_repo.Get_by_id_count >= 2 && usecase.get_by_id_calls >= 2 {
+				//check the sender_id.
+				received_id := mock_wallet_repo.Get_by_id_calls[1].Received_id
+				if received_id != usecase.repo_receiver_id {
+					t.Errorf("Logic: expected receiver ID passed to get_wallet_by_userID %d got %d", usecase.repo_receiver_id, received_id)
+				}
+			}
 			if usecase.update_calls >= 1 && len(mock_wallet_repo.Update_calls) >= 1 {
 				//check the new balance.
 				received_balance := mock_wallet_repo.Update_calls[0].Received_balance
+				received_id := mock_wallet_repo.Update_calls[0].Received_id
 				if received_balance != usecase.repo_sender_balance {
 					t.Errorf("Logic: expected new sender wallet balance in repo %d got %d", usecase.repo_sender_balance, received_balance)
+				}
+				if received_id != usecase.repo_sender_id {
+					t.Errorf("Logic: expected sender wallet ID in repo %d got %d", usecase.repo_sender_id, received_id)
 				}
 			}
 			//check the second call input.
 			if usecase.update_calls >= 2 && len(mock_wallet_repo.Update_calls) >= 2 {
 				//check the new balance.
 				received_balance := mock_wallet_repo.Update_calls[1].Received_balance
+				received_id := mock_wallet_repo.Update_calls[1].Received_id
 				if received_balance != usecase.repo_receiver_balance {
 					t.Errorf("Logic: expected new receiver wallet balance in repo %d got %d", usecase.repo_receiver_balance, received_balance)
+				}
+				if received_id != usecase.repo_receiver_id {
+					t.Errorf("Logic: expected receiver wallet ID in repo %d got %d", usecase.repo_receiver_id, received_id)
 				}
 			}
 			if usecase.create_trans_calls >= 1 && len(mock_trans_repo.Create_transaction_calls) >= 1 {
