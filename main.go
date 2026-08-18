@@ -2,6 +2,7 @@ package main
 
 import (
 	database "Wallet-App/config"
+	_ "Wallet-App/docs"
 	"Wallet-App/handler"
 	"Wallet-App/repository"
 	"Wallet-App/router"
@@ -9,12 +10,23 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title			Wallet & Expense Tracker API
+// @version 		1.0
+// @description 	Backend system for user wallet, balance and transaction handling.
+// @host			localhost:8080
+// @BasePath		/
 
 func main() {
 
 	//init new router.
 	Router := gin.Default()
+
+	//add the swagger documentation on router.
+	Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	//then: get a connection to database.
 	connection_data := "host=db user=postgres password=admin dbname=wallet_app port=5432 sslmode=disable"

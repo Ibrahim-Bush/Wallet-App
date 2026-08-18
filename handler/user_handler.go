@@ -17,6 +17,16 @@ func Init_user_handler(service service.User_service) *User_handler {
 	return &new_handler
 }
 
+// @Summary	 		Creates a new user.
+// @Description 	Register a new user and automatically create an associated wallet with initial balance (zero).
+// @Tags			User
+// @Accept			json
+// @Produce			json
+// @Param			request body 	model.Auth_request true 	"User credentials"
+// @Success			201  {object}	map[string]interface{}		"Created user and their wallet details"
+// @Failure			400	 {object}	map[string]string			"Error message"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/signup [post]
 func (handler *User_handler) Create_user_handler(c *gin.Context) {
 	//get the data form json body.
 	var user_request model.Auth_request
@@ -47,6 +57,17 @@ func (handler *User_handler) Create_user_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		User login.
+// @Description 	Authenticate user credentials and generate a JWT token.
+// @Tags			User
+// @Accept			json
+// @Produce			json
+// @Param			request body 	model.Auth_request true 	"User login credentials"
+// @Success			200  {object}	map[string]string			"Authentication JWT token"
+// @Failure			400	 {object}	map[string]string			"Invalid json format"
+// @Failure			401	 {object}	map[string]string			"Invalid credentials"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/login [post]
 func (handler *User_handler) Login_user_handler(c *gin.Context) {
 	//get the user input from the json body.
 	var user_request model.Auth_request

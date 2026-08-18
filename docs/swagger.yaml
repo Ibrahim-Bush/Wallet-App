@@ -1,0 +1,373 @@
+basePath: /
+definitions:
+  model.Auth_request:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  model.Transaction:
+    properties:
+      amount:
+        type: integer
+      category:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      note:
+        type: string
+      related_wallet_id:
+        type: integer
+      type:
+        type: string
+      wallet_id:
+        type: integer
+    type: object
+  model.Transaction_summary:
+    properties:
+      category:
+        type: string
+      total:
+        type: integer
+    type: object
+  model.Transfer_request:
+    properties:
+      amount:
+        type: integer
+      category:
+        type: string
+      note:
+        type: string
+      to_username:
+        type: string
+    type: object
+  model.Wallet:
+    properties:
+      balance:
+        type: integer
+      id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Backend system for user wallet, balance and transaction handling.
+  title: Wallet & Expense Tracker API
+  version: "1.0"
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user credentials and generate a JWT token.
+      parameters:
+      - description: User login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Auth_request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid json format
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User login.
+      tags:
+      - User
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user and automatically create an associated wallet
+        with initial balance (zero).
+      parameters:
+      - description: User credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Auth_request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created user and their wallet details
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a new user.
+      tags:
+      - User
+  /transactions:
+    get:
+      description: Get all user transactions with optional filtering by category or
+        date range (from & to).
+      parameters:
+      - description: Filter transactions by category
+        in: query
+        name: category
+        type: string
+      - description: Start date for filter
+        in: query
+        name: from
+        type: string
+      - description: End date for filter
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of transactions
+          schema:
+            items:
+              $ref: '#/definitions/model.Transaction'
+            type: array
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Wallet not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get current user transactions.
+      tags:
+      - Transactions
+  /transactions/summary:
+    get:
+      description: Get financial summary of transaction totals grouped by category
+        for the current month.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transactions summary details
+          schema:
+            items:
+              $ref: '#/definitions/model.Transaction_summary'
+            type: array
+        "404":
+          description: Wallet not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get current user transactions summary.
+      tags:
+      - Transactions
+  /wallet:
+    get:
+      description: Retrieve the current balance and details of the user wallet.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Wallet object
+          schema:
+            $ref: '#/definitions/model.Wallet'
+        "403":
+          description: Lack permissions
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Wallet not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get current user's wallet + balance.
+      tags:
+      - Wallet
+  /wallet/deposit:
+    post:
+      consumes:
+      - application/json
+      description: Deposit money into current user wallet and creates a transaction
+        record.
+      parameters:
+      - description: Deposit details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Transfer_request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            $ref: '#/definitions/model.Transaction'
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Wallet not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a deposit transaction.
+      tags:
+      - Wallet
+  /wallet/transfer:
+    post:
+      consumes:
+      - application/json
+      description: transfer money from current user's wallet to the receiver user's
+        wallet.
+      parameters:
+      - description: Transfer details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Transfer_request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            $ref: '#/definitions/model.Transaction'
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Wallet or receiver not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a transfer transaction.
+      tags:
+      - Wallet
+  /wallet/withdraw:
+    post:
+      consumes:
+      - application/json
+      description: withdraw money into current user wallet and creates a transaction
+        record.
+      parameters:
+      - description: withdraw details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Transfer_request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transaction details
+          schema:
+            $ref: '#/definitions/model.Transaction'
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Wallet not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a withdraw transaction.
+      tags:
+      - Wallet
+swagger: "2.0"

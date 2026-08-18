@@ -36,6 +36,15 @@ func Get_user_claims(c *gin.Context) (*model.User_claims, error) {
 	return user, nil
 }
 
+// @Summary	 		Get current user's wallet + balance.
+// @Description 	Retrieve the current balance and details of the user wallet.
+// @Tags			Wallet
+// @Produce			json
+// @Success			200  {object}	model.Wallet		"Wallet object"
+// @Failure			403	 {object}	map[string]string	"Lack permissions"
+// @Failure			404	 {object}	map[string]string	"Wallet not found"
+// @Failure			500	 {object}	map[string]string	"Server error"
+// @Router			/wallet [get]
 func (handler *Wallet_handler) Get_wallet_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
@@ -68,6 +77,17 @@ func (handler *Wallet_handler) Get_wallet_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		Creates a deposit transaction.
+// @Description 	Deposit money into current user wallet and creates a transaction record.
+// @Tags			Wallet
+// @Accept			json
+// @Produce			json
+// @Param			request body 	model.Transfer_request true	"Deposit details"
+// @Success			200  {object}	model.Transaction			"Transaction details"
+// @Failure			400	 {object}	map[string]string			"Error message"
+// @Failure			404	 {object}	map[string]string			"Wallet not found"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/wallet/deposit [post]
 func (handler *Wallet_handler) Deposit_process_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
@@ -100,6 +120,17 @@ func (handler *Wallet_handler) Deposit_process_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		Creates a withdraw transaction.
+// @Description 	withdraw money into current user wallet and creates a transaction record.
+// @Tags			Wallet
+// @Accept			json
+// @Produce			json
+// @Param			request body 	model.Transfer_request true "withdraw details"
+// @Success			200  {object}	model.Transaction			"Transaction details"
+// @Failure			400	 {object}	map[string]string			"Error message"
+// @Failure			404	 {object}	map[string]string			"Wallet not found"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/wallet/withdraw [post]
 func (handler *Wallet_handler) Withdraw_process_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
@@ -134,6 +165,17 @@ func (handler *Wallet_handler) Withdraw_process_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		Creates a transfer transaction.
+// @Description 	transfer money from current user's wallet to the receiver user's wallet.
+// @Tags			Wallet
+// @Accept			json
+// @Produce			json
+// @Param			request body 	model.Transfer_request true "Transfer details"
+// @Success			200  {object}	model.Transaction			"Transaction details"
+// @Failure			400	 {object}	map[string]string			"Error message"
+// @Failure			404	 {object}	map[string]string			"Wallet or receiver not found"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/wallet/transfer [post]
 func (handler *Wallet_handler) Transfer_process_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
@@ -174,6 +216,18 @@ func (handler *Wallet_handler) Transfer_process_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		Get current user transactions.
+// @Description 	Get all user transactions with optional filtering by category or date range (from & to).
+// @Tags			Transactions
+// @Param			category query 	string false		"Filter transactions by category"
+// @Param			from query 	   	string false		"Start date for filter"
+// @Param			to query 	   	string false		"End date for filter"
+// @Produce			json
+// @Success			200  {array}	model.Transaction	"List of transactions"
+// @Failure			400	 {object}	map[string]string	"Error message"
+// @Failure			404	 {object}	map[string]string	"Wallet not found"
+// @Failure			500	 {object}	map[string]string	"Server error"
+// @Router			/transactions [get]
 func (handler *Wallet_handler) Get_transactions_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
@@ -239,6 +293,14 @@ func (handler *Wallet_handler) Get_transactions_handler(c *gin.Context) {
 	}
 }
 
+// @Summary	 		Get current user transactions summary.
+// @Description 	Get financial summary of transaction totals grouped by category for the current month.
+// @Tags			Transactions
+// @Produce			json
+// @Success			200  {array}	model.Transaction_summary	"Transactions summary details"
+// @Failure			404	 {object}	map[string]string			"Wallet not found"
+// @Failure			500	 {object}	map[string]string			"Server error"
+// @Router			/transactions/summary [get]
 func (handler *Wallet_handler) Get_transactions_summary_handler(c *gin.Context) {
 	//get the user claims.
 	user, err := Get_user_claims(c)
