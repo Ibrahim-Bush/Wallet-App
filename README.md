@@ -30,7 +30,7 @@ Our app has the following features:
   - 201: User created (on signup).
   - 400: Invalid input or JSON.
   - 401: Unauthorized (missing or invalid JWT, invalid login).
-  - 403: Forbidden (user lacks role permissions).
+  - 403: Forbidden (user lacks required permissions).
   - 404: Resource not found (e.g., non-existent wallet).
   - 500: Internal server/database error.
 
@@ -52,19 +52,19 @@ Our app has the following features:
   - **Admin Privileges**: Grants administrative accounts **system-wide access** to inspect and view records across all users.
   
 ### Concurrency & Race Condition Safety
-To handle high-concurrency environments and prevent critical financial issues like double-spending , lost updates, or negative balances during **Transfer** operations, The application enforces **atomic operations**:
+To handle **high-concurrency** environments and prevent critical financial issues like double-spending , lost updates, or negative balances during **Transfer operations**, The application enforces **atomic operations**:
 - **Row Locking** (`FOR UPDATE`): During balance transfers, the system locks both the sender and receiver wallet rows in database (`SELECT ... FOR UPDATE`). This ensures that no concurrent HTTP requests can read or modify the same wallet balance until the active transaction completes.
 - **Atomic Database Transactions**: Transfers, deposits, and withdrawals run inside isolated, atomic transactions (`db.Transaction`). If any condition fails, all state changes are automatically rolled back.
 
 ## Testing
 
 ### Unit Testing:
-  The application includes unit tests covering core business logic, input validation, user management and error handling.
+  The application includes unit tests covering core business logic, input validation, user management and error handling:
   - **User Authentication**: Tests user creation (signup) and ensure **automatic wallet creation** for new users, credential checking and login logic.
   - **Wallet logic**: Tests balance checks, insufficient funds handling, deposits, withdrawals and transfer rules.
 
 ### Integration Testing
-The application includes end-to-end integration tests to validate full API workflows, database transactions, edge cases, and concurrency safety:
+The application includes **end-to-end** integration tests to validate full API workflows, database transactions, edge cases, and concurrency safety:
 - **Deposit Flow**: Verifies correct balance updates upon wallet funding.
 - **Transfer Rules & Validation**:
     - **Non-existent Receiver**: Confirms transfers fail gracefully when the recipient account does not exist.
@@ -106,23 +106,27 @@ To stop and remove all containers use this command:
     ```
 2. **Login**: Obtain a JWT token by sending a `POST` request to `http://localhost:8080/login` with your credentials.
 3. **Deposit Funds**: Send a `POST` request to `http://localhost:8080/wallet/deposit` with your JWT attached in `Authorization` header:
-
+   
     ```
+    {
         "amount": 150,
         "category": "work",
         "note": "salary"
+    }
     ```
 The system will execute the operation and increase your wallet balance then generate a transaction, store it in the system and return it to you in response:
 
-    ```
-        id: 1,
-        amount: 150,
-        wallet_id: your_wallet_id
-        type: deposit,
-        category: work,
-        note: salary,
-        created_at: actual_transaction_time
-    ```
+  ```
+    {
+        "id": 1,
+        "amount": 150,
+        "wallet_id": "your_wallet_id",
+        "type": "deposit",
+        "category": "work",
+        "note": "salary",
+        "created_at": "2026-08-19T10:00:00Z"
+    }
+  ```
 
 ## API Documentation
 
