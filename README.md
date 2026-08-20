@@ -62,6 +62,7 @@ To handle **high-concurrency** environments and prevent critical financial issue
   The application includes unit tests covering core business logic, input validation, user management and error handling:
   - **User Authentication**: Tests user creation (signup) and ensure **automatic wallet creation** for new users, credential checking and login logic.
   - **Wallet logic**: Tests balance checks, insufficient funds handling, deposits, withdrawals and transfer rules.
+  - **Database Error Masking**: Ensures raw database errors are intercepted at the service layer and replaced with safe, generic messages to protect internal system details. 
 
 ### Integration Testing
 The application includes **end-to-end** integration tests to validate full API workflows, database transactions, edge cases, and concurrency safety:
