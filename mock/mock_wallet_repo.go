@@ -18,6 +18,7 @@ type Mock_wallet_repo struct {
 	Update_calls  []Data
 	Update_count  int
 	Received_wallet *model.Wallet
+	Wanted_list		[]model.Wallet
 	Wanted_err error
 	Was_called bool
 }
@@ -63,8 +64,19 @@ func (mock *Mock_wallet_repo) Create_wallet_record(tx *gorm.DB, new_wallet *mode
 
 }
 func (mock *Mock_wallet_repo) Get_record_by_userID(id int) (*model.Wallet, error) {
-	panic("Mock error: unexpected call to Get_wallet_by_id method")
+	//get the call data.
+	call := &mock.Get_by_id_calls[mock.Get_by_id_count]
+	//store the input id.
+	call.Received_id = id
+	//increase the calls count.
+	mock.Get_by_id_count++
+	//return the required valus.
+	return call.Wanted_wallet, call.Wanted_err
 }
+
 func (mock *Mock_wallet_repo) Get_all_records() ([]model.Wallet, error) {
-	panic("Mock error: unexpected call to Get_all_wallets method")
+	//change was called to true.
+	mock.Was_called = true
+	//return the required error.
+	return mock.Wanted_list, mock.Wanted_err
 }

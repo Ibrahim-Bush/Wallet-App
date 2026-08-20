@@ -15,6 +15,15 @@ type Trans_data struct {
 type Mock_transaction_repo struct {
 	Create_transaction_calls []Trans_data
 	Create_transaction_count int
+
+	Received_category   string
+	Received_start_date time.Time
+	Received_end_date   time.Time
+	Received_month      time.Time
+	Wanted_list         []model.Transaction
+	Wanted_summary      []model.Transaction_summary
+	Wanted_err          error
+	Was_called          bool
 }
 
 func (mock *Mock_transaction_repo) Create_transaction_record(tx *gorm.DB, transaction *model.Transaction) error {
@@ -33,14 +42,33 @@ func (mock *Mock_transaction_repo) Create_transaction_record(tx *gorm.DB, transa
 }
 
 func (mock *Mock_transaction_repo) Get_all_records(wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
-	panic("Mock error: unexpected call to Get_all_transactions method")
+	//change was called to true
+	mock.Was_called = true
+	//return required values.
+	return mock.Wanted_list, mock.Wanted_err
 }
 func (mock *Mock_transaction_repo) Get_records_by_category(category string, wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
-	panic("Mock error: unexpected call to Get_transactions_by_category method")
+	//change was called to true
+	mock.Was_called = true
+	//store the received category.
+	mock.Received_category = category
+	//return required values.
+	return mock.Wanted_list, mock.Wanted_err
 }
 func (mock *Mock_transaction_repo) Get_records_by_date(start, end time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction, error) {
-	panic("Mock error: unexpected call to Get_transactions_by_date  method")
+	//change was called to true
+	mock.Was_called = true
+	//store the received dates.
+	mock.Received_start_date = start
+	mock.Received_end_date = end
+	//return required values.
+	return mock.Wanted_list, mock.Wanted_err
 }
 func (mock *Mock_transaction_repo) Get_records_summary(current_month time.Time, wallet_id int, user *model.User_claims) ([]model.Transaction_summary, error) {
-	panic("Mock error: unexpected call to Get_transactions_summary method")
+	//change was called to true
+	mock.Was_called = true
+	//store the received month.
+	mock.Received_month = current_month
+	//return required values.
+	return mock.Wanted_summary, mock.Wanted_err
 }
