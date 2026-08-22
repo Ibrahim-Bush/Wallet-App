@@ -10,6 +10,38 @@ definitions:
     - password
     - username
     type: object
+  model.Budget:
+    properties:
+      category:
+        type: string
+      id:
+        type: integer
+      monthly_limit:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  model.Budget_status:
+    properties:
+      category:
+        type: string
+      monthly_limit:
+        type: integer
+      over_budget:
+        type: boolean
+      spent:
+        type: integer
+    type: object
+  model.Create_budget_request:
+    properties:
+      category:
+        type: string
+      monthly_limit:
+        type: integer
+    required:
+    - category
+    - monthly_limit
+    type: object
   model.Transaction:
     properties:
       amount:
@@ -28,6 +60,13 @@ definitions:
         type: string
       wallet_id:
         type: integer
+    type: object
+  model.Transaction_response:
+    properties:
+      transaction:
+        $ref: '#/definitions/model.Transaction'
+      warning:
+        type: string
     type: object
   model.Transaction_summary:
     properties:
@@ -63,6 +102,109 @@ info:
   title: Wallet & Expense Tracker API
   version: "1.0"
 paths:
+  /budgets:
+    post:
+      consumes:
+      - application/json
+      description: Sets a spending budget limit for a specific category for the current
+        user.
+      parameters:
+      - description: Create budget details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Create_budget_request'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created budget details
+          schema:
+            $ref: '#/definitions/model.Budget'
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Creates a new category budget.
+      tags:
+      - Budget
+  /budgets/{category}:
+    put:
+      consumes:
+      - application/json
+      description: Updates a spending limit for a specific category for the current
+        user.
+      parameters:
+      - description: Budget category
+        in: path
+        name: category
+        required: true
+        type: string
+      - description: Update budget details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Create_budget_request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated budget details
+          schema:
+            $ref: '#/definitions/model.Budget'
+        "400":
+          description: Error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Budget not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Updates an existing budget.
+      tags:
+      - Budget
+  /budgets/status:
+    get:
+      description: Get spending progress, monthly limits, and over-budget flags for
+        all user budgets.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of user budget statuses
+          schema:
+            items:
+              $ref: '#/definitions/model.Budget_status'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get budget status for all categories.
+      tags:
+      - Budget
   /login:
     post:
       consumes:
@@ -305,9 +447,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Transaction details
+          description: Transaction details with budget warning
           schema:
-            $ref: '#/definitions/model.Transaction'
+            $ref: '#/definitions/model.Transaction_response'
         "400":
           description: Error message
           schema:
@@ -333,8 +475,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: withdraw money into current user wallet and creates a transaction
-        record.
+      description: withdraw money from current user wallet, creates a transaction
+        record and display a budget warning.
       parameters:
       - description: withdraw details
         in: body
@@ -346,9 +488,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Transaction details
+          description: Transaction details with budget warning
           schema:
-            $ref: '#/definitions/model.Transaction'
+            $ref: '#/definitions/model.Transaction_response'
         "400":
           description: Error message
           schema:

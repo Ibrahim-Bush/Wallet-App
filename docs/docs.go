@@ -15,6 +15,158 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/budgets": {
+            "post": {
+                "description": "Sets a spending budget limit for a specific category for the current user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Budget"
+                ],
+                "summary": "Creates a new category budget.",
+                "parameters": [
+                    {
+                        "description": "Create budget details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Create_budget_request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created budget details",
+                        "schema": {
+                            "$ref": "#/definitions/model.Budget"
+                        }
+                    },
+                    "400": {
+                        "description": "Error message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/budgets/status": {
+            "get": {
+                "description": "Get spending progress, monthly limits, and over-budget flags for all user budgets.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Budget"
+                ],
+                "summary": "Get budget status for all categories.",
+                "responses": {
+                    "200": {
+                        "description": "List of user budget statuses",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Budget_status"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/budgets/{category}": {
+            "put": {
+                "description": "Updates a spending limit for a specific category for the current user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Budget"
+                ],
+                "summary": "Updates an existing budget.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Budget category",
+                        "name": "category",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update budget details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.Create_budget_request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated budget details",
+                        "schema": {
+                            "$ref": "#/definitions/model.Budget"
+                        }
+                    },
+                    "400": {
+                        "description": "Error message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Budget not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Authenticate user credentials and generate a JWT token.",
@@ -377,9 +529,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Transaction details",
+                        "description": "Transaction details with budget warning",
                         "schema": {
-                            "$ref": "#/definitions/model.Transaction"
+                            "$ref": "#/definitions/model.Transaction_response"
                         }
                     },
                     "400": {
@@ -414,7 +566,7 @@ const docTemplate = `{
         },
         "/wallet/withdraw": {
             "post": {
-                "description": "withdraw money into current user wallet and creates a transaction record.",
+                "description": "withdraw money from current user wallet, creates a transaction record and display a budget warning.",
                 "consumes": [
                     "application/json"
                 ],
@@ -438,9 +590,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Transaction details",
+                        "description": "Transaction details with budget warning",
                         "schema": {
-                            "$ref": "#/definitions/model.Transaction"
+                            "$ref": "#/definitions/model.Transaction_response"
                         }
                     },
                     "400": {
@@ -490,6 +642,55 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Budget": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "monthly_limit": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.Budget_status": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "monthly_limit": {
+                    "type": "integer"
+                },
+                "over_budget": {
+                    "type": "boolean"
+                },
+                "spent": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.Create_budget_request": {
+            "type": "object",
+            "required": [
+                "category",
+                "monthly_limit"
+            ],
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "monthly_limit": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.Transaction": {
             "type": "object",
             "properties": {
@@ -516,6 +717,17 @@ const docTemplate = `{
                 },
                 "wallet_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "model.Transaction_response": {
+            "type": "object",
+            "properties": {
+                "transaction": {
+                    "$ref": "#/definitions/model.Transaction"
+                },
+                "warning": {
+                    "type": "string"
                 }
             }
         },
