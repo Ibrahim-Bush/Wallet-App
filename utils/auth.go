@@ -6,11 +6,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"Wallet-App/model"
 	"errors"
+	"github.com/gin-gonic/gin"
 )
 
 var (
 	ErrInvalidPassword = errors.New("Invalid password")
 	ErrInvalidToken = errors.New("Invalid token")
+	ErrInvalidClaims = errors.New("Error invalid claims")
 )
 
 //define a secret key for signature.
@@ -65,4 +67,19 @@ func Verify_token(input_token string) (*model.User_claims, error){
 	}
 
 	return nil, ErrInvalidToken
+}
+
+func Get_user_claims(c *gin.Context) (*model.User_claims, error) {
+	//get the user from gin context.
+	value, exists := c.Get("user")
+	if !exists {
+		return nil, ErrInvalidClaims
+	}
+	//extract the user struct from interface.
+	user, ok := value.(*model.User_claims)
+	if !ok {
+		return nil, ErrInvalidClaims
+	}
+	//if the struct extracted successfully.
+	return user, nil
 }

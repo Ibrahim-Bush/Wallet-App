@@ -16,7 +16,7 @@ func Init_database(connection_data string) (*gorm.DB, error) {
 		return nil, err
 	}
 	//create a table with AutoMigrate.
-	err = db.AutoMigrate(&model.User{}, &model.Wallet{}, &model.Transaction{})
+	err = db.AutoMigrate(&model.User{}, &model.Wallet{}, &model.Transaction{}, &model.Budget{})
 	if err != nil {
 		return nil, err
 	}

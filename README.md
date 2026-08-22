@@ -24,6 +24,11 @@ Our app has the following features:
 - `GET /transactions?from=&to=` : get user's transactions filter by date range.
 - `GET /transactions/summary` : get transactions summary (totals grouped by category for the current month).
 
+### Budget Endpoints:
+- `POST /budgets` : Creates a new monthly spending limit for a category.
+- `PUT /budgets/:category` : Updates the limit for an existing category budget.
+- `GET /budgets/status` : get spending progress, limits, and over-budget status across all budget records.
+
 ### Error Handling: 
   Return appropriate HTTP status codes with clear messages to explain the error:
   - 200: Successful operations.
@@ -51,10 +56,14 @@ Our app has the following features:
   - **Least Privilege**: Automatically assigns all **new registrations** the standard **user role** by default, ensuring accounts start with the minimal permissions.
   - **Admin Privileges**: Grants administrative accounts **system-wide access** to inspect and view records across all users.
   
-### Concurrency & Race Condition Safety
+### Concurrency & Race Condition Safety:
 To handle **high-concurrency** environments and prevent critical financial issues like double-spending , lost updates, or negative balances during **Transfer operations**, The application enforces **atomic operations**:
 - **Row Locking** (`FOR UPDATE`): During balance transfers, the system locks both the sender and receiver wallet rows in database (`SELECT ... FOR UPDATE`). This ensures that no concurrent HTTP requests can read or modify the same wallet balance until the active transaction completes.
 - **Atomic Database Transactions**: Transfers, deposits, and withdrawals run inside isolated, atomic transactions (`db.Transaction`). If any condition fails, all state changes are automatically rolled back.
+
+### Budget Alerts Mechanism:
+- **Non-blocking Warnings**: Exceeding a budget on `withdraw` or `transfer` operations does not block the transaction. The operations completes normally and returns a warning message in response.
+- **Dynamic Tracking**: Monthly spending is calculated dynamically per category to evaluate budget limits in real time.
 
 ## Testing
 
@@ -66,7 +75,6 @@ To handle **high-concurrency** environments and prevent critical financial issue
 
 ### Integration Testing
 The application includes **end-to-end** integration tests to validate full API workflows, database transactions, edge cases, and concurrency safety:
-- **Deposit Flow**: Verifies correct balance updates upon wallet funding.
 - **Transfer Rules & Validation**:
     - **Non-existent Receiver**: Confirms transfers fail gracefully when the recipient account does not exist.
     - **Insufficient Balance**: Ensures transactions are rejected when requested funds exceed current balance.

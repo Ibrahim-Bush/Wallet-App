@@ -4,7 +4,7 @@ import (
 	"Wallet-App/utils"
 	"errors"
 	"strings"
-	"Wallet-App/handler"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,9 +47,9 @@ func Auth_middleware(c *gin.Context) {
 }
 
 func Authorize_user_middleware(c *gin.Context) {
-	
+
 	//get the user struct from the gin context.
-	user, err := handler.Get_user_claims(c)
+	user, err := utils.Get_user_claims(c)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Server error"})
 		c.Abort()

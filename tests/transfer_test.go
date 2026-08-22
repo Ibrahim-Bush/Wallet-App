@@ -2,6 +2,7 @@ package test
 
 import (
 	"Wallet-App/model"
+	"Wallet-App/utils"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -17,9 +18,7 @@ var (
 
 func Test_transfer_integration(t *testing.T) {
 
-	//first: reset wallets balance to assure balance after operations.
-	Reset_wallets_balance(t, 100)
-	//then get a token for users to pass authentication middleware.
+	//get a token for users to pass authentication middleware.
 	user1_token := Login_test_user(t, user1_Auth)
 	user1_wallet := Get_wallet_by_username(t, user1)
 	user2_wallet := Get_wallet_by_username(t, user2)
@@ -32,11 +31,11 @@ func Test_transfer_integration(t *testing.T) {
 		sender_user                   model.User
 		receiver_user                 model.User
 		expected_status               int
-		expected_transaction          model.Transaction
+		expected_transaction          *model.Transaction
 		expected_sender_balance       int
 		expected_receiver_balance     int
-		expected_sender_transaction   model.Transaction
-		expected_receiver_transaction model.Transaction
+		expected_sender_transaction   *model.Transaction
+		expected_receiver_transaction *model.Transaction
 	}
 	//define a table for usecases.
 	tests := []usecase{
@@ -48,33 +47,22 @@ func Test_transfer_integration(t *testing.T) {
 			sender_user:                   user1,
 			receiver_user:                 user2,
 			expected_status:               200,
-			expected_transaction:          model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "transfer_out", Category: "food", RelatedWalletID: &user2_wallet.ID},
+			expected_transaction:          &model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "transfer_out", Category: "food", RelatedWalletID: &user2_wallet.ID},
 			expected_sender_balance:       50,
 			expected_receiver_balance:     150,
-			expected_sender_transaction:   model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "transfer_out", Category: "food", RelatedWalletID: &user2_wallet.ID},
-			expected_receiver_transaction: model.Transaction{WalletID: user2_wallet.ID, Amount: 50, Type: "transfer_in", Category: "food", RelatedWalletID: &user1_wallet.ID},
+			expected_sender_transaction:   &model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "transfer_out", Category: "food", RelatedWalletID: &user2_wallet.ID},
+			expected_receiver_transaction: &model.Transaction{WalletID: user2_wallet.ID, Amount: 50, Type: "transfer_in", Category: "food", RelatedWalletID: &user1_wallet.ID},
 		}, {
 			name:                        "withdraw - Insufficient fund",
 			endpoint:                    "/withdraw",
-			input_request:               model.Transfer_request{Amount: 100, Category: " 	food	"},
+			input_request:               model.Transfer_request{Amount: 150, Category: " 	food	"},
 			token:                       user1_token,
 			sender_user:                 user1,
 			receiver_user:               model.User{},
 			expected_status:             400,
-			expected_transaction:        model.Transaction{},
-			expected_sender_balance:     50,
-			expected_sender_transaction: model.Transaction{},
-		}, {
-			name:                        "deposit - Successful process",
-			endpoint:                    "/deposit",
-			input_request:               model.Transfer_request{Amount: 50, Category: " 	WOrk	"},
-			token:                       user1_token,
-			sender_user:                 user1,
-			receiver_user:               model.User{},
-			expected_status:             200,
-			expected_transaction:        model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "deposit", Category: "work", RelatedWalletID: nil},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{WalletID: user1_wallet.ID, Amount: 50, Type: "deposit", Category: "work", RelatedWalletID: nil},
+			expected_sender_transaction: nil,
 		}, {
 			name:                        "Transfer - Receiver not found",
 			endpoint:                    "/transfer",
@@ -83,9 +71,9 @@ func Test_transfer_integration(t *testing.T) {
 			sender_user:                 user1,
 			receiver_user:               model.User{},
 			expected_status:             404,
-			expected_transaction:        model.Transaction{},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{},
+			expected_sender_transaction: nil,
 		}, {
 			name:                        "Transfer - Error Self Transfer",
 			endpoint:                    "/transfer",
@@ -94,31 +82,31 @@ func Test_transfer_integration(t *testing.T) {
 			sender_user:                 user1,
 			receiver_user:               user1,
 			expected_status:             400,
-			expected_transaction:        model.Transaction{},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{},
+			expected_sender_transaction: nil,
 		}, {
-			name:                        "deposit - Invalid amount",
-			endpoint:                    "/deposit",
+			name:                        "withdraw - Invalid amount",
+			endpoint:                    "/withdraw",
 			input_request:               model.Transfer_request{Amount: -20, Category: " 	WOrk	"},
 			token:                       user1_token,
 			sender_user:                 user1,
 			receiver_user:               model.User{},
 			expected_status:             400,
-			expected_transaction:        model.Transaction{},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{},
+			expected_sender_transaction: nil,
 		}, {
 			name:                        "withdraw - Invalid token",
 			endpoint:                    "/withdraw",
-			input_request:               model.Transfer_request{Amount: 100, Category: " 	FoOd	"},
+			input_request:               model.Transfer_request{Amount: 50, Category: " 	FoOd	"},
 			token:                       "",
 			sender_user:                 user1,
 			receiver_user:               model.User{},
 			expected_status:             401,
-			expected_transaction:        model.Transaction{},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{},
+			expected_sender_transaction: nil,
 		}, {
 			name:                        "Transfer - Insufficient fund",
 			endpoint:                    "/transfer",
@@ -127,18 +115,30 @@ func Test_transfer_integration(t *testing.T) {
 			sender_user:                 user1,
 			receiver_user:               user2,
 			expected_status:             400,
-			expected_transaction:        model.Transaction{},
+			expected_transaction:        nil,
 			expected_sender_balance:     100,
-			expected_sender_transaction: model.Transaction{},
+			expected_sender_transaction: nil,
+		}, {
+			name:                        "withdraw - Successful happy path",
+			endpoint:                    "/withdraw",
+			input_request:               model.Transfer_request{Amount: 100, Category: " 	fOOD	"},
+			token:                       user1_token,
+			sender_user:                 user1,
+			expected_status:             200,
+			expected_transaction:        &model.Transaction{WalletID: user1_wallet.ID, Amount: 100, Type: "withdraw", Category: "food", RelatedWalletID: nil},
+			expected_sender_balance:     0,
+			expected_sender_transaction: &model.Transaction{WalletID: user1_wallet.ID, Amount: 100, Type: "withdraw", Category: "food", RelatedWalletID: nil},
 		},
 	}
 	//run tests one by one.
 	for _, usecase := range tests {
 		t.Run(usecase.name, func(t *testing.T) {
+			//first: reset wallets balance to assure balance after operation.
+			Reset_wallets_balance(t, 100)
 			//set the json body.
 			json_request, err := json.Marshal(usecase.input_request)
 			if err != nil {
-				t.Fatalf("Filed to convert request to json format in case: %s", usecase.name)
+				t.Fatalf("Failed to convert request to json format in case: %s", usecase.name)
 			}
 			//set the request.
 			request, err := http.NewRequest("POST", "/wallet"+usecase.endpoint, bytes.NewBuffer(json_request))
@@ -167,16 +167,16 @@ func Test_transfer_integration(t *testing.T) {
 			//in case of success check the transactions in response and database.
 			if usecase.expected_status == 200 && receiver.Code == usecase.expected_status {
 				//get the transaction in response.
-				var received_transaction model.Transaction
-				err := json.Unmarshal(receiver.Body.Bytes(), &received_transaction)
+				var received_response model.Transaction_response
+				err := json.Unmarshal(receiver.Body.Bytes(), &received_response)
 				if err != nil {
-					t.Fatalf("Failed to extract transaction from response in case %s", usecase.name)
+					t.Fatalf("Failed to extract response struct from body in case %s", usecase.name)
 				}
 				//compare expected transaction with received transaction.
-				Compare_transactions(t, "Response - "+usecase.name, received_transaction, usecase.expected_transaction)
+				utils.Compare_transaction_structs(t, "Response - "+usecase.name, received_response.Transaction, usecase.expected_transaction)
 				//check the stored transaction with the expected one.
 				sender_transaction := Get_latest_transaction(t, sender_wallet)
-				Compare_transactions(t, "stored sender transaction - "+usecase.name, sender_transaction, usecase.expected_sender_transaction)
+				utils.Compare_transaction_structs(t, "stored sender transaction - "+usecase.name, &sender_transaction, usecase.expected_sender_transaction)
 				//check if the process was successful transfer.
 				if usecase.endpoint == "/transfer" {
 					//check the receiver balance.
@@ -186,42 +186,10 @@ func Test_transfer_integration(t *testing.T) {
 					}
 					//check the receiver transaction.
 					receiver_transaction := Get_latest_transaction(t, receiver_wallet)
-					Compare_transactions(t, "stored receiver transaction - "+usecase.name, receiver_transaction, usecase.expected_receiver_transaction)
+					utils.Compare_transaction_structs(t, "stored receiver transaction - "+usecase.name, &receiver_transaction, usecase.expected_receiver_transaction)
 				}
 			}
 		})
-	}
-}
-
-func Compare_transactions(t *testing.T, stage string, received, expected model.Transaction) {
-	//compare the walletID.
-	if received.WalletID != expected.WalletID {
-		t.Errorf("Logic (%s): expected walletIdD in transaction %d got %d", stage, expected.WalletID, received.WalletID)
-	}
-	//compare the type of transaction.
-	if received.Type != expected.Type {
-		t.Errorf("Logic (%s): expected Type in transaction %s got %s", stage, expected.Type, received.Type)
-	}
-	//compare the amount of transaction.
-	if received.Amount != expected.Amount {
-		t.Errorf("Logic (%s): expected amount in transaction %d got %d", stage, expected.Amount, received.Amount)
-	}
-	//compare the category of transaction.
-	if received.Category != expected.Category {
-		t.Errorf("Logic (%s): expected category in transaction %s got %s", stage, expected.Category, received.Category)
-	}
-	//check the related wallet ID.
-	if received.RelatedWalletID == nil || expected.RelatedWalletID == nil {
-		if received.RelatedWalletID == nil && expected.RelatedWalletID != nil {
-			t.Errorf("Boundary (%s): expected not nil related wallet id got %v", stage, received.RelatedWalletID)
-		} else if received.RelatedWalletID != nil && expected.RelatedWalletID == nil {
-			t.Errorf("Boundary (%s): expected nil related wallet ID got %v", stage, received.RelatedWalletID)
-		}
-	} else {
-		//compare the id in expected transaction with actual one.
-		if *received.RelatedWalletID != *expected.RelatedWalletID {
-			t.Errorf("Logic (%s): expected related wallet ID in transaction %d got %d", stage, *expected.RelatedWalletID, *received.RelatedWalletID)
-		}
 	}
 }
 
@@ -259,7 +227,7 @@ func Test_concurrent_withdrawals(t *testing.T) {
 			//create the request.
 			request, err := http.NewRequest("POST", "/wallet/withdraw", bytes.NewBuffer(json_request))
 			if err != nil {
-				t.Errorf("Failed to set the request using json body in cuncurrent withdrawals")
+				t.Errorf("Failed to set the request using json body in concurrent withdrawals")
 				return
 			}
 			//set the request header.
@@ -282,13 +250,13 @@ func Test_concurrent_withdrawals(t *testing.T) {
 	close(response_channel)
 	//check the result of requests.
 	var success, fail int
-	var successful_transaction model.Transaction
-	//chcek the success and fail requests.
+	var success_response model.Transaction_response
+	//check the success and fail requests.
 	for response := range response_channel {
 		if response.code == 200 {
 			success++
 			//get the transaction in response.
-			err := json.Unmarshal([]byte(response.body), &successful_transaction)
+			err := json.Unmarshal([]byte(response.body), &success_response)
 			if err != nil {
 				t.Fatalf("Failed to extract the transaction from response in concurrent withdrawals")
 			}
@@ -301,7 +269,7 @@ func Test_concurrent_withdrawals(t *testing.T) {
 		t.Errorf("Concurrent withdrawals failed: expected only one success and one failure got %d successes and %d failures", success, fail)
 	}
 	//compare the transaction in return with expected one.
-	Compare_transactions(t, "Response - Concurrent withdrawals", successful_transaction, expected_transaction)
+	utils.Compare_transaction_structs(t, "Response - Concurrent withdrawals", success_response.Transaction, &expected_transaction)
 	//check the balance and assure it is zero.
 	wallet := Get_wallet_by_username(t, user2)
 	if wallet.Balance != expected_balance {
@@ -309,5 +277,5 @@ func Test_concurrent_withdrawals(t *testing.T) {
 	}
 	//check the transaction stored in the database.
 	transaction := Get_latest_transaction(t, wallet)
-	Compare_transactions(t, "Stored transaction - Concurrent withdrawals", transaction, expected_transaction)
+	utils.Compare_transaction_structs(t, "Stored transaction - Concurrent withdrawals", &transaction, &expected_transaction)
 }

@@ -4,6 +4,7 @@ import (
 	"Wallet-App/model"
 	"Wallet-App/repository"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -28,12 +29,8 @@ type Wallet_service interface {
 	Get_user_wallet(id int) (*model.Wallet, error)
 	Get_all_wallets(user *model.User_claims) ([]model.Wallet, error)
 	Deposit_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction, error)
-	Withdraw_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction, error)
-	Transfer_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction, error)
-	Get_user_transactions(user *model.User_claims) ([]model.Transaction, error)
-	Get_transactions_by_category(category string, user *model.User_claims) ([]model.Transaction, error)
-	Get_transactions_by_date(start, end string, user *model.User_claims) ([]model.Transaction, error)
-	Get_transactions_summary(user *model.User_claims) ([]model.Transaction_summary, error)
+	Withdraw_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction_response, error)
+	Transfer_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction_response, error)
 }
 
 type wallet_service struct {
@@ -140,7 +137,7 @@ func (service *wallet_service) Deposit_process(request model.Transfer_request, u
 	}
 }
 
-func (service *wallet_service) Withdraw_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction, error) {
+func (service *wallet_service) Withdraw_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction_response, error) {
 	//first check the user claims.
 	if user == nil {
 		return nil, ErrInvalidUser
@@ -152,6 +149,7 @@ func (service *wallet_service) Withdraw_process(request model.Transfer_request, 
 	}
 	//define a variable for the transaction.
 	var transaction_record *model.Transaction
+	var user_wallet *model.Wallet
 	//start a transaction for withdraw process.
 	err = service.db.Transaction(func(tx *gorm.DB) error {
 		//first get the wallet of the user and lock its row.
@@ -189,22 +187,63 @@ func (service *wallet_service) Withdraw_process(request model.Transfer_request, 
 		}
 		//after successfull process.
 		transaction_record = &transaction
+		user_wallet = wallet
 		return nil
 	})
-	//check the result of process.
-	switch {
-	case err == nil:
-		return transaction_record, nil
-	case errors.Is(err, repository.ErrWalletNotFound):
-		return nil, ErrWalletNotFound
-	case errors.Is(err, ErrInSufficient):
-		return nil, ErrInSufficient
-	default:
-		return nil, ErrServerError
+	//if the process failed.
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrWalletNotFound):
+			return nil, ErrWalletNotFound
+		case errors.Is(err, ErrInSufficient):
+			return nil, ErrInSufficient
+		default:
+			return nil, ErrServerError
+		}
 	}
+	//in case of success, check the MonthlyLimit.
+	var response model.Transaction_response
+	//check the monthly limit of this category.
+	warning, limit_err := service.Check_category_limit(user, user_wallet.ID, request.Category)
+	if limit_err != nil {
+		return nil, limit_err
+	}
+	//build a transaction response.
+	response = model.Transaction_response{
+		Transaction: transaction_record,
+		Warning:     warning,
+	}
+	//return transaction with message.
+	return &response, nil
 }
 
-func (service *wallet_service) Transfer_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction, error) {
+func (service *wallet_service) Check_category_limit(user *model.User_claims, wallet_id int, category string) (string, error) {
+	//first, check if the category has limit.
+	budget, err := service.trans_repo.Get_budget_record(user.UserID, category)
+	if err != nil {
+		if errors.Is(err, repository.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", ErrServerError
+	}
+	//get the date of the current month.
+	current_time := time.Now().UTC()
+	current_month := time.Date(current_time.Year(), current_time.Month(), 1, 0, 0, 0, 0, time.UTC)
+	//then get the total spent this month.
+	summary, err := service.trans_repo.Get_category_summary(category, current_month, wallet_id)
+	if err != nil {
+		return "", ErrServerError
+	}
+	//check if the total spent exceed the limit.
+	if summary.Total > budget.MonthlyLimit {
+		message := fmt.Sprintf("warning: You've exceeded your %s budget for this month", category)
+		return message, nil
+	}
+	//if the spent does not exceed limit.
+	return "", nil
+}
+
+func (service *wallet_service) Transfer_process(request model.Transfer_request, user *model.User_claims) (*model.Transaction_response, error) {
 	//first check the user claims.
 	if user == nil {
 		return nil, ErrInvalidUser
@@ -220,6 +259,7 @@ func (service *wallet_service) Transfer_process(request model.Transfer_request, 
 	}
 	//define a variable for the transaction.
 	var transaction_record *model.Transaction
+	var user_wallet *model.Wallet
 	//start a transaction for deposit process.
 	err = service.db.Transaction(func(tx *gorm.DB) error {
 		//first get the wallet of the sernder and lock its row.
@@ -299,23 +339,38 @@ func (service *wallet_service) Transfer_process(request model.Transfer_request, 
 		}
 		//after successfull process.
 		transaction_record = &transfer_out_transaction
+		user_wallet = sender_wallet
 		return nil
 	})
-	//check the result of process.
-	switch {
-	case err == nil:
-		return transaction_record, nil
-	case errors.Is(err, repository.ErrUserNotFound), errors.Is(err, ErrReceiverNotFound):
-		return nil, ErrReceiverNotFound
-	case errors.Is(err, ErrInSufficient):
-		return nil, ErrInSufficient
-	case errors.Is(err, ErrInvalidTransfer):
-		return nil, ErrInvalidTransfer
-	case errors.Is(err, repository.ErrWalletNotFound):
-		return nil, ErrWalletNotFound
-	default:
-		return nil, ErrServerError
+	//if the process failed.
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrUserNotFound), errors.Is(err, ErrReceiverNotFound):
+			return nil, ErrReceiverNotFound
+		case errors.Is(err, ErrInSufficient):
+			return nil, ErrInSufficient
+		case errors.Is(err, ErrInvalidTransfer):
+			return nil, ErrInvalidTransfer
+		case errors.Is(err, repository.ErrWalletNotFound):
+			return nil, ErrWalletNotFound
+		default:
+			return nil, ErrServerError
+		}
 	}
+	//if the process succeeded, get the waring message.
+	var response model.Transaction_response
+	//check the monthly limit of this category.
+	warning, limit_err := service.Check_category_limit(user, user_wallet.ID, request.Category)
+	if limit_err != nil {
+		return nil, limit_err
+	}
+	//build a transaction response.
+	response = model.Transaction_response{
+		Transaction: transaction_record,
+		Warning:     warning,
+	}
+	//return the transaction with the message.
+	return &response, nil
 }
 
 func Normalize_request_fields(request *model.Transfer_request) error {
@@ -334,143 +389,4 @@ func Normalize_request_fields(request *model.Transfer_request) error {
 	request.ToUsername = strings.ToLower(strings.TrimSpace(request.ToUsername))
 	//if all fields normalized.
 	return nil
-}
-
-func (service *wallet_service) Get_user_transactions(user *model.User_claims) ([]model.Transaction, error) {
-	//check the user claims.
-	if user == nil {
-		return nil, ErrInvalidUser
-	}
-	//first, get the user's wallet to get transactions on it.
-	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
-	if err != nil{
-		if errors.Is(err, repository.ErrWalletNotFound){
-			return nil, ErrWalletNotFound
-		}
-		return nil, ErrServerError
-	}
-	//get all user transactions.
-	transactions, err := service.trans_repo.Get_all_records( wallet.ID, user)
-	//check the result.
-	switch {
-	case err == nil:
-		return transactions, nil
-	default:
-		return nil, ErrServerError
-	}
-}
-
-func (service *wallet_service) Get_transactions_by_category(category string, user *model.User_claims) ([]model.Transaction, error) {
-	//check the user claims.
-	if user == nil {
-		return nil, ErrInvalidUser
-	}
-	//normalize category.
-	category = strings.ToLower(strings.TrimSpace(category))
-	if category == "" {
-		return nil, ErrEmptyCategory
-	}
-	//first, get the user's wallet to get transactions on it.
-	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
-	if err != nil{
-		if errors.Is(err, repository.ErrWalletNotFound){
-			return nil, ErrWalletNotFound
-		}
-		return nil, ErrServerError
-	}
-	//get all user transactions of the target category.
-	transactions, err := service.trans_repo.Get_records_by_category(category, wallet.ID, user)
-	//check the result.
-	switch {
-	case err == nil:
-		return transactions, nil
-	default:
-		return nil, ErrServerError
-	}
-}
-
-func (service *wallet_service) Get_transactions_by_date(start, end string, user *model.User_claims) ([]model.Transaction, error) {
-	//check the user claims.
-	if user == nil {
-		return nil, ErrInvalidUser
-	}
-	//parse the standard dates.
-	start_time, err := Parse_standard_date(start)
-	//check the result.
-	if err != nil {
-		return nil, err
-	}
-	end_time, err := Parse_standard_date(end)
-	if err != nil {
-		return nil, err
-	}
-	//check if the end time is before start time.
-	if start_time.After(end_time) {
-		return nil, ErrInvalidDateRange
-	}
-	//first, get the user's wallet to get transactions on it.
-	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
-	if err != nil{
-		if errors.Is(err, repository.ErrWalletNotFound){
-			return nil, ErrWalletNotFound
-		}
-		return nil, ErrServerError
-	}
-	//get all user transactions of the target category.
-	transactions, err := service.trans_repo.Get_records_by_date(start_time, end_time, wallet.ID, user)
-	//check the result.
-	switch {
-	case err == nil:
-		return transactions, nil
-	default:
-		return nil, ErrServerError
-	}
-}
-
-func Parse_standard_date(input_date string) (time.Time, error) {
-	//first, clean empty spaces at the start and end.
-	clean_date := strings.TrimSpace(input_date)
-	if clean_date == "" {
-		return time.Time{}, ErrInvalidDate
-	}
-	//convert string to standard date.
-	standard_date, err := time.Parse(time.RFC3339, clean_date)
-	if err != nil {
-		//try to convert it to date only without time.
-		standard_date, err = time.Parse("2006-01-02", clean_date)
-		if err != nil {
-			return time.Time{}, ErrInvalidDate
-		}
-	}
-	//convert date to UTC.
-	standard_date = standard_date.UTC()
-	//return standard time.
-	return standard_date, nil
-}
-
-func (service *wallet_service) Get_transactions_summary(user *model.User_claims) ([]model.Transaction_summary, error) {
-	//check the user claims.
-	if user == nil {
-		return nil, ErrInvalidUser
-	}
-	//get the date of the current month.
-	current_time := time.Now().UTC()
-	current_month := time.Date(current_time.Year(), current_time.Month(), 1, 0, 0, 0, 0, time.UTC)
-	//first, get the user's wallet to get transactions on it.
-	wallet, err := service.wallet_repo.Get_record_by_userID(user.UserID)
-	if err != nil{
-		if errors.Is(err, repository.ErrWalletNotFound){
-			return nil, ErrWalletNotFound
-		}
-		return nil, ErrServerError
-	}
-	//get the transactions summary of this month.
-	summary, err := service.trans_repo.Get_records_summary(current_month, wallet.ID, user)
-	//check the summary.
-	switch {
-	case err == nil:
-		return summary, nil
-	default:
-		return nil, ErrServerError
-	}
 }

@@ -44,14 +44,17 @@ func main() {
 	//linking repository layer with service layer.
 	user_service := service.Init_user_service(user_repo, wallet_repo, database)
 	wallet_service := service.Init_wallet_service(wallet_repo, transaction_repo, user_repo, database)
+	transaction_service := service.Init_transaction_service(transaction_repo, wallet_repo)
 
 	//linking service layer to handler layer.
 	user_handler := handler.Init_user_handler(user_service)
 	wallet_handler := handler.Init_wallet_handler(wallet_service)
+	transaction_handler := handler.Init_transaction_handler(transaction_service)
 
 	//linking the handler layer to the router.
 	router.Init_user_router(Router, user_handler)
 	router.Init_wallet_router(Router, wallet_handler)
+	router.Init_transaction_router(Router, transaction_handler)
 
 	//run the server at local port ":8080".
 	Router.Run(":8080")
